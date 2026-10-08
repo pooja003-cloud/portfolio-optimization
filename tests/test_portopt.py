@@ -224,3 +224,12 @@ def test_max_sharpe_sees_the_rate_known_at_each_rebalance(rets):
 def test_resolve_risk_free_options(rets):
     assert data.resolve_risk_free("0.02", rets.index) == pytest.approx(0.02)
     assert data.resolve_risk_free("tbill", rets.index, synthetic=True) == 0.0
+
+
+# ---------------------------------------------------------------- packaging
+@pytest.mark.parametrize("module", ["backtest", "commentary", "config", "data", "estimators",
+                                    "metrics", "optimizers", "plots", "robustness", "run", "stats"])
+def test_every_module_imports(module):
+    """Catches syntax errors in modules that the other tests never load."""
+    import importlib
+    importlib.import_module(f"portopt.{module}")
