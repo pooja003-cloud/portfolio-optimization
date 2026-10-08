@@ -29,7 +29,8 @@ TEST_END = "2025-12-31"
 README_START, README_END = "<!-- EXTENSION:START -->", "<!-- EXTENSION:END -->"
 
 
-def compare_periods(main_dir: Path, summary: pd.DataFrame, sig: pd.DataFrame) -> pd.DataFrame | None:
+def compare_periods(main_dir: Path, summary: pd.DataFrame, sig: pd.DataFrame,
+                    analytic: dict | None = None) -> pd.DataFrame | None:
     """Side-by-side Sharpe ratios and p-values: main study versus 2023-2025."""
     try:
         old = pd.read_csv(main_dir / "metrics.csv", index_col=0)
@@ -48,6 +49,7 @@ def compare_periods(main_dir: Path, summary: pd.DataFrame, sig: pd.DataFrame) ->
         rows[name] = {
             "Sharpe ratio, 2015-2022": cell(old, old_sig),
             "Sharpe ratio, 2023-2025": cell(summary, sig),
+            "Analytic p-value, 2023-2025": f"{analytic[name]:.3f}" if analytic and name in analytic else "",
             "Annual return, 2023-2025": f"{summary.loc[name, M.RETURN]:.1%}",
             "Maximum drawdown, 2023-2025": f"{summary.loc[name, M.DRAWDOWN]:.1%}",
             "Annual turnover, 2023-2025": f"{summary.loc[name, M.TURNOVER]:.1%}",
@@ -78,6 +80,7 @@ def combined_test(main_dir: Path, ext_returns: pd.DataFrame, ext_rf, n_boot: int
             row[S.DIFF] = f"{t['diff']:+.2f}"
             row["95% interval for the difference"] = f"{t['ci_low']:+.2f} to {t['ci_high']:+.2f}"
             row["p-value"] = f"{t['p_value']:.2f}"
+            row["Analytic p-value"] = f"{S.sharpe_diff_analytic(both[name], bench, rf=rf)['p_value']:.3f}"
         rows[name] = row
     out = pd.DataFrame(rows).T.fillna("")
     out.index.name = f"{both.index[0]:%Y-%m} to {both.index[-1]:%Y-%m} ({len(both)} months)"
@@ -155,7 +158,10 @@ def main(argv=None):
     print("\n" + table_md + "\n")
     print(sig_md + "\n")
 
-    comparison = compare_periods(main_dir, summary, sig) if main_dir else None
+    bench = results["Equal weight"].returns
+    analytic = {n: S.sharpe_diff_analytic(r.returns, bench, rf=rf)["p_value"]
+                for n, r in results.items() if n != "Equal weight"}
+    comparison = compare_periods(main_dir, summary, sig, analytic) if main_dir else None
     if comparison is not None:
         comp_md = comparison.to_markdown(disable_numparse=True)
         (out / "comparison.md").write_text(comp_md + "\n")
@@ -174,8 +180,10 @@ def main(argv=None):
             print(combined_md + "\n")
             combined_md = ("\n\n**Both periods together.** The same comparison over the whole test period, "
                            f"{combined.index.name}:\n\n" + combined_md)
-        block = (f"Sharpe ratios for both periods, with the p-value against equal weight in brackets. "
-                 f"The 2023-2025 test has {len(test)} months. {rf_line}\n\n{comp_md}{combined_md}\n\n"
+        block = (f"Sharpe ratios for both periods, with the bootstrap p-value against equal weight in brackets. "
+                 f"The 2023-2025 test has only {len(test)} months, which is too few for the bootstrap to be "
+                 f"reliable, so the table also shows an analytic test (Jobson-Korkie with Memmel's correction) "
+                 f"as a cross-check. {rf_line}\n\n{comp_md}{combined_md}\n\n"
                  f"![Growth of $1 over 2023-2025]({out.as_posix()}/figures/cumulative_wealth.png)")
         if a.out is None:
             _update_readme(block)

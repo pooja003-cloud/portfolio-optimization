@@ -63,6 +63,26 @@ def sharpe_diff_test(
             "ci_low": lo, "ci_high": hi, "p_value": p}
 
 
+def sharpe_diff_analytic(r: pd.Series, bench: pd.Series, rf=0.0, periods: int = PERIODS_PER_YEAR) -> dict:
+    """Jobson-Korkie test with Memmel's (2003) correction, as a cross-check on the bootstrap.
+
+    It uses a formula for the variance of the gap between two Sharpe ratios that
+    accounts for how correlated the two strategies are. It assumes returns are
+    roughly normal and independent month to month, so it can't see volatility
+    clustering, but unlike the bootstrap it doesn't get overconfident in short samples.
+    """
+    from scipy.stats import norm
+
+    both = pd.concat([r, bench], axis=1).dropna()
+    x = both.values - rf_monthly(rf, both.index, periods).values[:, None]
+    T = len(x)
+    s1, s2 = x.mean(axis=0) / x.std(axis=0, ddof=1)       # monthly Sharpe ratios
+    rho = np.corrcoef(x[:, 0], x[:, 1])[0, 1]
+    var = (2 - 2 * rho + 0.5 * (s1**2 + s2**2 - 2 * s1 * s2 * rho**2)) / T
+    z = (s1 - s2) / np.sqrt(var)
+    return {"z": float(z), "p_value": float(2 * (1 - norm.cdf(abs(z)))), "corr": float(rho)}
+
+
 def sharpe_se(r: pd.Series, rf=0.0, periods: int = PERIODS_PER_YEAR) -> float:
     """Rough standard error of an annualized Sharpe ratio (Lo, 2002)."""
     ex = r - rf_monthly(rf, r.index, periods)

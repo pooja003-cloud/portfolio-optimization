@@ -252,3 +252,16 @@ def test_cache_is_only_reused_when_it_covers_the_dates(tmp_path):
     assert len(got) == 24
     assert data._covers(rf.index, "2012-01-01", "2022-12-31")
     assert not data._covers(rf.index, "2020-01-01", "2025-12-31")
+
+
+def test_analytic_sharpe_test_matches_the_formula(rets):
+    a, b = rets["SPY"], rets["QQQ"]
+    out = S.sharpe_diff_analytic(a, b)
+    x, y = a.values, b.values
+    s1, s2 = x.mean() / x.std(ddof=1), y.mean() / y.std(ddof=1)
+    rho = np.corrcoef(x, y)[0, 1]
+    var = (2 - 2 * rho + 0.5 * (s1**2 + s2**2 - 2 * s1 * s2 * rho**2)) / len(x)
+    assert out["z"] == pytest.approx((s1 - s2) / np.sqrt(var))
+    assert 0 <= out["p_value"] <= 1
+    flipped = S.sharpe_diff_analytic(b, a)
+    assert flipped["z"] == pytest.approx(-out["z"]) and flipped["p_value"] == pytest.approx(out["p_value"])
