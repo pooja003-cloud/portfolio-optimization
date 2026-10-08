@@ -76,8 +76,6 @@ Run `python -m portopt.run` and this section fills itself in with the real-data 
 | Risk parity (sample)          | 0.31     | -0.14               | [-0.40, +0.11] | 0.26      | no                   |
 | Risk parity (LW)              | 0.34     | -0.12               | [-0.34, +0.10] | 0.28      | no                   |
 
-![cumulative_wealth](results/figures/cumulative_wealth.png)
-
 ![metric_comparison](results/figures/metric_comparison.png)
 
 ![drawdowns](results/figures/drawdowns.png)

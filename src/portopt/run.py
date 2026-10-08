@@ -46,7 +46,7 @@ def update_readme(table_md: str, setup: dict, out: Path, sig_md: str = "", readm
         return
     setup_md = "\n".join(f"- **{k}:** {v}" for k, v in setup.items())
     figs = "\n\n".join(f"![{n}]({out.as_posix()}/figures/{n}.png)" for n in
-                        ["cumulative_wealth", "metric_comparison", "drawdowns", "efficient_frontier", "weights_heatmap"])
+                        ["metric_comparison", "drawdowns", "efficient_frontier", "weights_heatmap"]  # growth chart is in the README summary)
     sig = ("\n\n**Is the Sharpe gap real?** Paired block bootstrap of each strategy's Sharpe ratio "
            "minus equal weight's (6-month blocks, 10,000 draws):\n\n" + sig_md) if sig_md else ""
     block = f"{README_START}\n{setup_md}\n\n{table_md}{sig}\n\n{figs}\n{README_END}"
