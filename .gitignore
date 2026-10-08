@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.env
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Offline demo output (random data, never commit as results)
+results_synthetic/
+
+# Downloaded data is reproducible from the script; commit it if you want
+# the repo to run offline. Comment this line out to keep it.
+# data/

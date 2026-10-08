@@ -1,0 +1,8 @@
+,Sharpe,Δ vs equal weight,95% CI low,95% CI high,p-value
+Min variance (sample),0.3607,-0.1932,-0.5605,0.2338,0.3259
+Min variance (LW),0.4211,-0.1328,-0.4763,0.2480,0.4566
+Max Sharpe (sample),0.6326,0.0787,-0.3932,0.5429,0.7324
+Max Sharpe (LW),0.5524,-0.0015,-0.4793,0.4589,0.9949
+Max Sharpe (LW + shrunk mean),0.5544,0.0004,-0.4345,0.3866,0.9976
+Risk parity (sample),0.4433,-0.1106,-0.3713,0.1550,0.3981
+Risk parity (LW),0.4596,-0.0943,-0.3225,0.1371,0.4089
