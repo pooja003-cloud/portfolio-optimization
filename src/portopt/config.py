@@ -1,19 +1,20 @@
-"""Project defaults. Everything here can be overridden from the command line."""
+"""Default settings. Most of these can be changed from the command line."""
 
-# 13 liquid ETFs that all trade before 2012, spanning equities, rates,
-# credit, inflation, real estate and commodities.
+# 13 exchange-traded funds, all trading before 2012, covering stocks,
+# government bonds, corporate bonds, inflation-linked bonds, property,
+# gold and commodities.
 UNIVERSE = {
-    "SPY": "US large cap equity",
-    "QQQ": "US tech / Nasdaq-100",
-    "IWM": "US small cap equity",
-    "EFA": "Developed ex-US equity",
-    "EEM": "Emerging market equity",
-    "VNQ": "US REITs",
-    "TLT": "US Treasuries 20y+",
-    "IEF": "US Treasuries 7-10y",
-    "TIP": "US TIPS",
-    "LQD": "US investment-grade corporates",
-    "HYG": "US high yield corporates",
+    "SPY": "US large-company stocks (S&P 500)",
+    "QQQ": "US technology stocks (Nasdaq-100)",
+    "IWM": "US small-company stocks (Russell 2000)",
+    "EFA": "Developed-market stocks outside the US",
+    "EEM": "Emerging-market stocks",
+    "VNQ": "US real estate investment trusts",
+    "TLT": "US Treasury bonds, 20+ years",
+    "IEF": "US Treasury bonds, 7-10 years",
+    "TIP": "US inflation-protected Treasury bonds",
+    "LQD": "US investment-grade corporate bonds",
+    "HYG": "US high-yield corporate bonds",
     "GLD": "Gold",
     "DBC": "Broad commodities",
 }
@@ -21,13 +22,15 @@ UNIVERSE = {
 START = "2012-01-01"
 END = "2022-12-31"
 
-ESTIMATION_WINDOW = 36      # months of history used at each rebalance (3 to 5 years -> 36 to 60)
-REBALANCE_EVERY = 3         # months (quarterly)
-WEIGHT_CAP = 0.30           # max weight per asset; long-only throughout
-# Risk-free rate: "tbill" = 3-month US T-bill (FRED series TB3MS), varying by
-# month; or a number = constant annual rate (e.g. 0.0).
+ESTIMATION_WINDOW = 36   # months of history behind each rebalance (36-60 = 3-5 years)
+REBALANCE_EVERY = 3      # months, i.e. quarterly
+WEIGHT_CAP = 0.30        # no asset above 30%; no short selling anywhere
+
+# "tbill" uses the 3-month US Treasury bill rate from FRED (series TB3MS),
+# which changes every month. A number means a fixed annual rate, e.g. 0.
 RISK_FREE = "tbill"
 FRED_SERIES = "TB3MS"
-COST_BPS = 0.0              # one-way transaction cost in basis points (0 = frictionless)
+
+COST_BPS = 0.0           # trading cost per trade, in basis points (1 bp = 0.01%)
 
 PERIODS_PER_YEAR = 12

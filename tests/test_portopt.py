@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from portopt import backtest as B, data, estimators as E, metrics as M, optimizers as O
+from portopt import backtest as B, data, estimators as E, metrics as M, optimizers as O, stats as S
 from portopt.config import UNIVERSE
 
 TICKERS = list(UNIVERSE)
@@ -19,7 +19,7 @@ def est(rets):
     return E.estimate(rets.iloc[:48], "sample")
 
 
-# ---------------------------------------------------------------- optimizers
+# optimizers
 @pytest.mark.parametrize("name", list(O.STRATEGIES))
 def test_weights_are_long_only_capped_and_fully_invested(est, name):
     mu, cov = est
@@ -92,7 +92,7 @@ def test_frontier_is_increasing_and_starts_at_min_variance(est):
     assert fr["volatility"].iloc[0] == pytest.approx(mv["volatility"], rel=1e-3)
 
 
-# ---------------------------------------------------------------- estimators
+# estimators
 def test_ledoit_wolf_is_well_conditioned(rets):
     short = rets.iloc[:10]  # fewer months than assets: sample cov is singular
     assert np.linalg.matrix_rank(E.sample_cov(short)) < len(TICKERS)
@@ -106,9 +106,10 @@ def test_shrunk_mean_interpolates(rets):
     assert np.allclose(m1, m1.iloc[0])
 
 
-# ---------------------------------------------------------------- backtest
+# backtest
 def test_no_look_ahead(rets):
-    """Scrambling the future must not change any weight chosen before it."""
+    # Replace everything after month 72 with junk. Weights chosen before then
+    # must not change at all.
     strat = B.Strategy("ms", O.max_sharpe, "sample")
     base = B.run_backtest(rets, strat, window=36, cap=CAP)
     cut = 72
@@ -141,7 +142,7 @@ def test_costs_reduce_returns_by_turnover(rets):
     assert drag == pytest.approx(2 * free.turnover.sum() * 10 / 1e4)
 
 
-# ---------------------------------------------------------------- metrics
+# metrics
 def test_metrics_on_known_series():
     r = pd.Series([0.10, -0.50, 0.20, 0.10])
     assert M.max_drawdown(r) == pytest.approx(-0.5)
@@ -149,9 +150,7 @@ def test_metrics_on_known_series():
     assert M.sharpe(pd.Series([0.01, 0.03] * 6)) == pytest.approx(0.02 / np.std([0.01, 0.03] * 6, ddof=1) * np.sqrt(12))
 
 
-# ---------------------------------------------------------------- significance
-from portopt import stats as S  # noqa: E402
-
+# significance
 
 def test_block_indices_are_contiguous_blocks():
     idx = S.block_indices(n=20, block=5, n_boot=50, rng=np.random.default_rng(0))
@@ -186,7 +185,7 @@ def test_pure_noise_is_not_significant_on_average():
     assert np.mean(np.array(pvals) < 0.05) <= 0.15
 
 
-# ---------------------------------------------------------------- risk-free rate
+# risk-free rate
 def test_tbill_is_lagged_one_month_and_converted_to_monthly():
     fred = pd.Series([1.2, 2.4, 3.6], index=pd.to_datetime(["2022-01-01", "2022-02-01", "2022-03-01"]))
     rf = data.tbill_to_monthly(fred)
@@ -210,8 +209,8 @@ def test_missing_risk_free_months_raise(rets):
 
 
 def test_max_sharpe_sees_the_rate_known_at_each_rebalance(rets):
-    """With a huge rate in the second half, no portfolio beats cash, so max Sharpe
-    must fall back to min variance there and only there."""
+    # With a 60%-a-year rate in the second half nothing beats cash, so maximum
+    # Sharpe has to switch to minimum variance there, and only there.
     rf = pd.Series(0.0, index=rets.index)
     rf.iloc[72:] = 0.05                                    # 60% a year
     ms = B.run_backtest(rets, B.Strategy("ms", O.max_sharpe), window=36, cap=CAP, rf=rf)
@@ -226,10 +225,10 @@ def test_resolve_risk_free_options(rets):
     assert data.resolve_risk_free("tbill", rets.index, synthetic=True) == 0.0
 
 
-# ---------------------------------------------------------------- packaging
+# imports
 @pytest.mark.parametrize("module", ["backtest", "commentary", "config", "data", "estimators",
                                     "metrics", "optimizers", "plots", "robustness", "run", "stats"])
 def test_every_module_imports(module):
-    """Catches syntax errors in modules that the other tests never load."""
+    # catches typos in modules the other tests never import
     import importlib
     importlib.import_module(f"portopt.{module}")

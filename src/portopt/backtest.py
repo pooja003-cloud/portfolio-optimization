@@ -1,9 +1,9 @@
 """Rolling out-of-sample backtest.
 
-At each rebalance date t the strategy sees only the `window` months that end
-*before* t, picks target weights, and then holds them (letting them drift with
-prices) until the next rebalance. Nothing from month t onward is used to
-choose the weights that earn month t's return.
+On each rebalance date the strategy only gets to see the `window` months
+before that date. It picks weights, we hold them (letting them drift as
+prices move) until the next rebalance, and record what they earned. So the
+returns that judge a strategy never feed into the weights it chose.
 """
 
 from __future__ import annotations
@@ -23,18 +23,18 @@ from .metrics import rf_monthly
 @dataclass
 class Strategy:
     name: str
-    weight_fn: Callable                  # f(mu, cov, cap) -> pd.Series
-    cov_method: str = "sample"           # key into estimators.COV_ESTIMATORS
-    mean_fn: Callable = mean_returns     # f(rets) -> annualized pd.Series
+    weight_fn: Callable                  # (mu, cov, cap) -> weights
+    cov_method: str = "sample"           # "sample" or "ledoit_wolf"
+    mean_fn: Callable = mean_returns     # how expected returns are estimated
     kwargs: dict = field(default_factory=dict)
 
 
 @dataclass
 class BacktestResult:
     name: str
-    returns: pd.Series          # monthly net portfolio returns (out of sample)
-    weights: pd.DataFrame       # target weights at each rebalance date
-    turnover: pd.Series         # one-way turnover at each rebalance date
+    returns: pd.Series       # monthly returns after costs, test period only
+    weights: pd.DataFrame    # target weights chosen at each rebalance
+    turnover: pd.Series      # share of the portfolio traded at each rebalance (one-way)
 
 
 def run_backtest(
@@ -46,25 +46,25 @@ def run_backtest(
     cost_bps: float = 0.0,
     rf=0.0,
 ) -> BacktestResult:
-    """rf: constant annual rate or Series of monthly rates (see metrics.rf_monthly).
-    Strategies whose weight function takes an `rf` argument receive the rate
-    known at each rebalance date, annualized."""
+    """`rf` is a fixed annual rate or a monthly Series. If the strategy's weight
+    function has an `rf` argument (maximum Sharpe does), it gets the rate that
+    was known on each rebalance date."""
     if window >= len(rets):
-        raise ValueError(f"Window ({window}) must be shorter than the sample ({len(rets)} months).")
+        raise ValueError(f"The window ({window} months) has to be shorter than the data ({len(rets)} months).")
 
     R = rets.values
     rf_m = rf_monthly(rf, rets.index).values
     wants_rf = "rf" in inspect.signature(strategy.weight_fn).parameters
     n_obs, n_assets = R.shape
     port_rets = np.full(n_obs, np.nan)
-    w_hold = np.zeros(n_assets)          # current (drifted) holdings, starts in cash
+    holdings = np.zeros(n_assets)   # start in cash
     weights, turnover = {}, {}
 
     for t in range(window, n_obs):
         if (t - window) % rebalance_every == 0:
-            hist = rets.iloc[t - window : t]           # strictly before month t
-            mu = strategy.mean_fn(hist)
-            cov = COV_ESTIMATORS[strategy.cov_method](hist)
+            history = rets.iloc[t - window : t]    # stops the month before t
+            mu = strategy.mean_fn(history)
+            cov = COV_ESTIMATORS[strategy.cov_method](history)
             kw = dict(strategy.kwargs)
             if wants_rf:
                 kw.setdefault("rf", rf_m[t] * PERIODS_PER_YEAR)
@@ -72,22 +72,21 @@ def run_backtest(
 
             date = rets.index[t]
             weights[date] = target
-            # The very first allocation is a purchase from cash, not a rebalance.
-            trade = 0.0 if t == window else 0.5 * np.abs(target - w_hold).sum()
-            turnover[date] = trade
-            w_hold = target.copy()
-            cost = 2 * trade * cost_bps / 1e4      # charge buys and sells (2x one-way)
+            # The first allocation is buying from cash, so it isn't counted as turnover.
+            traded = 0.0 if t == window else 0.5 * np.abs(target - holdings).sum()
+            turnover[date] = traded
+            holdings = target.copy()
+            cost = 2 * traded * cost_bps / 1e4   # pay on the buys and the sells
         else:
             cost = 0.0
 
-        r_p = float(w_hold @ R[t])
+        r_p = float(holdings @ R[t])
         port_rets[t] = r_p - cost
-        w_hold = w_hold * (1 + R[t]) / (1 + r_p)  # drift until next rebalance
+        holdings = holdings * (1 + R[t]) / (1 + r_p)   # weights drift with prices
 
-    idx = rets.index
     return BacktestResult(
         name=strategy.name,
-        returns=pd.Series(port_rets, index=idx, name=strategy.name).iloc[window:],
+        returns=pd.Series(port_rets, index=rets.index, name=strategy.name).iloc[window:],
         weights=pd.DataFrame(weights, index=rets.columns).T,
         turnover=pd.Series(turnover, name=strategy.name),
     )

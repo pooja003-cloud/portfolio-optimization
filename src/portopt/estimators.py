@@ -1,8 +1,7 @@
-"""Expected-return and covariance estimators (annualized)."""
+"""Estimates of expected returns and the covariance matrix, both annualized."""
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 from sklearn.covariance import LedoitWolf
 
@@ -10,17 +9,16 @@ from .config import PERIODS_PER_YEAR
 
 
 def mean_returns(rets: pd.DataFrame, periods: int = PERIODS_PER_YEAR) -> pd.Series:
-    """Historical (sample) mean, annualized."""
     return rets.mean() * periods
 
 
 def shrunk_mean_returns(
     rets: pd.DataFrame, intensity: float = 0.5, periods: int = PERIODS_PER_YEAR
 ) -> pd.Series:
-    """Shrink each asset's sample mean toward the cross-sectional grand mean.
+    """Pull each asset's average return toward the average across all assets.
 
-    A simple James-Stein style fix for noisy expected returns.
-    intensity = 0 -> sample means, 1 -> every asset gets the grand mean.
+    intensity=0 keeps the historical means; intensity=1 gives every asset the
+    same expected return. Halfway is a crude but useful guard against noisy means.
     """
     mu = rets.mean()
     return ((1 - intensity) * mu + intensity * mu.mean()) * periods
@@ -31,13 +29,14 @@ def sample_cov(rets: pd.DataFrame, periods: int = PERIODS_PER_YEAR) -> pd.DataFr
 
 
 def ledoit_wolf_cov(rets: pd.DataFrame, periods: int = PERIODS_PER_YEAR) -> pd.DataFrame:
-    """Ledoit-Wolf shrinkage toward a scaled identity (sklearn implementation)."""
+    # scikit-learn shrinks toward a scaled identity matrix and picks the
+    # shrinkage amount from the data.
     lw = LedoitWolf().fit(rets.values)
     return pd.DataFrame(lw.covariance_ * periods, index=rets.columns, columns=rets.columns)
 
 
 def ledoit_wolf_intensity(rets: pd.DataFrame) -> float:
-    """Estimated shrinkage weight (0 = sample covariance, 1 = fully shrunk target)."""
+    """0 = plain sample covariance, 1 = fully shrunk."""
     return float(LedoitWolf().fit(rets.values).shrinkage_)
 
 

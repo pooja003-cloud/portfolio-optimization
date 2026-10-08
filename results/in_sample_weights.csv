@@ -1,4 +1,4 @@
-,Equal weight,Min variance,Max Sharpe,Risk parity
+,Equal weight,Minimum variance,Maximum Sharpe,Risk parity
 SPY,0.0769,0.0000,0.3000,0.0491
 QQQ,0.0769,0.0000,0.3000,0.0419
 IWM,0.0769,0.0000,0.0000,0.0441

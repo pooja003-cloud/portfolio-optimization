@@ -1,8 +1,8 @@
-,Sharpe,Δ vs equal weight,95% CI low,95% CI high,p-value
-Min variance (sample),0.1860,-0.2693,-0.6266,0.1194,0.1534
-Min variance (LW),0.2511,-0.2041,-0.5338,0.1542,0.2331
-Max Sharpe (sample),0.5215,0.0663,-0.4357,0.5717,0.7837
-Max Sharpe (LW),0.4500,-0.0052,-0.4857,0.4567,0.9814
-Max Sharpe (LW + shrunk mean),0.4594,0.0042,-0.4336,0.3960,0.9837
+,Sharpe ratio,Difference from equal weight,95% interval low,95% interval high,p-value
+Minimum variance (sample),0.1860,-0.2693,-0.6266,0.1194,0.1534
+Minimum variance (Ledoit-Wolf),0.2511,-0.2041,-0.5338,0.1542,0.2331
+Maximum Sharpe (sample),0.5215,0.0663,-0.4357,0.5717,0.7837
+Maximum Sharpe (Ledoit-Wolf),0.4500,-0.0052,-0.4857,0.4567,0.9814
+"Maximum Sharpe (Ledoit-Wolf, shrunk means)",0.4594,0.0042,-0.4336,0.3960,0.9837
 Risk parity (sample),0.3129,-0.1423,-0.3954,0.1102,0.2578
-Risk parity (LW),0.3354,-0.1198,-0.3430,0.1019,0.2834
+Risk parity (Ledoit-Wolf),0.3354,-0.1198,-0.3430,0.1019,0.2833

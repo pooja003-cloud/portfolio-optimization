@@ -1,9 +1,9 @@
-,36m window (base)<br>2015–2022,"36m, rf = 0%<br>2015–2022",36m + 10 bps costs<br>2015–2022,"36m, 20% cap<br>2015–2022",60m window<br>2017–2022,60m + 10 bps costs<br>2017–2022
+,36-month window (main setup)<br>tested 2015–2022,Risk-free rate set to 0%<br>tested 2015–2022,Trading costs of 0.1% per trade<br>tested 2015–2022,Weight cap of 20%<br>tested 2015–2022,60-month window<br>tested 2017–2022,"60-month window, 0.1% costs<br>tested 2017–2022"
 Equal weight,0.4552,0.5539,0.4536,0.4552,0.4869,0.4853
-Min variance (sample),0.1860,0.3607,0.1752,0.2592,0.2008,0.1950
-Min variance (LW),0.2511,0.4211,0.2431,0.2696,0.2560,0.2508
-Max Sharpe (sample),0.5215,0.6326,0.5056,0.4910,0.6275,0.6159
-Max Sharpe (LW),0.4500,0.5524,0.4371,0.4398,0.6221,0.6130
-Max Sharpe (LW + shrunk mean),0.4594,0.5544,0.4434,0.4534,0.6408,0.6278
+Minimum variance (sample),0.1860,0.3607,0.1752,0.2592,0.2008,0.1950
+Minimum variance (Ledoit-Wolf),0.2511,0.4211,0.2431,0.2696,0.2560,0.2508
+Maximum Sharpe (sample),0.5215,0.6326,0.5056,0.4910,0.6275,0.6159
+Maximum Sharpe (Ledoit-Wolf),0.4500,0.5524,0.4371,0.4398,0.6221,0.6130
+"Maximum Sharpe (Ledoit-Wolf, shrunk means)",0.4594,0.5544,0.4434,0.4534,0.6408,0.6278
 Risk parity (sample),0.3129,0.4433,0.3093,0.3263,0.3643,0.3615
-Risk parity (LW),0.3354,0.4596,0.3325,0.3380,0.3831,0.3808
+Risk parity (Ledoit-Wolf),0.3354,0.4596,0.3325,0.3380,0.3831,0.3808

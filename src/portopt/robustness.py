@@ -1,11 +1,11 @@
-"""Re-run the backtest across settings and check whether the conclusions move.
+"""Rerun the backtest under different settings to see whether the conclusions hold.
 
-    python -m portopt.robustness              # uses cached data/returns.csv
-    python -m portopt.robustness --synthetic  # offline demo
+    python -m portopt.robustness              # uses the cached real data
+    python -m portopt.robustness --synthetic  # offline demo on made-up data
 
-Each scenario gets its own Sharpe ratio and bootstrap p-value against equal
-weight. Compare strategies *within* a column: windows of different length
-start the out-of-sample period at different dates.
+Each setting reports every strategy's Sharpe ratio and its p-value against
+equal weight. Only compare numbers within a column: a 60-month window
+starts testing in 2017 instead of 2015.
 """
 
 from __future__ import annotations
@@ -19,15 +19,18 @@ from . import config as C, data, metrics as M, stats as S
 from .backtest import run_all
 from .run import build_strategies
 
+# label, estimation window (months), weight cap, trading cost (basis points),
+# risk-free rate (None = Treasury bill rate)
 SCENARIOS = [
-    # label,                 window, cap,  cost_bps, risk-free (None = T-bill)
-    ("36m window (base)",        36, 0.30, 0,  None),
-    ("36m, rf = 0%",             36, 0.30, 0,  0.0),
-    ("36m + 10 bps costs",       36, 0.30, 10, None),
-    ("36m, 20% cap",             36, 0.20, 0,  None),
-    ("60m window",               60, 0.30, 0,  None),
-    ("60m + 10 bps costs",       60, 0.30, 10, None),
+    ("36-month window (main setup)",     36, 0.30, 0,  None),
+    ("Risk-free rate set to 0%",         36, 0.30, 0,  0.0),
+    ("Trading costs of 0.1% per trade",  36, 0.30, 10, None),
+    ("Weight cap of 20%",                36, 0.20, 0,  None),
+    ("60-month window",                  60, 0.30, 0,  None),
+    ("60-month window, 0.1% costs",      60, 0.30, 10, None),
 ]
+
+README_START, README_END = "<!-- ROBUSTNESS:START -->", "<!-- ROBUSTNESS:END -->"
 
 
 def run_scenarios(rets: pd.DataFrame, rf=0.0, n_boot: int = 5_000):
@@ -38,30 +41,43 @@ def run_scenarios(rets: pd.DataFrame, rf=0.0, n_boot: int = 5_000):
                       rebalance_every=C.REBALANCE_EVERY, cap=cap, cost_bps=cost, rf=r)
         summ = M.summarize(res, r)
         sig = S.significance_table(res, rf=r, n_boot=n_boot)
-        oos = res["Equal weight"].returns.index
-        col = f"{label}<br>{oos[0]:%Y}–{oos[-1]:%Y}"
-        sharpe[col] = summ["Sharpe ratio"]
+        test = res["Equal weight"].returns.index
+        col = f"{label}<br>tested {test[0]:%Y}–{test[-1]:%Y}"
+        sharpe[col] = summ[M.SHARPE]
         pvals[col] = sig["p-value"]
-        turnover[col] = summ["Ann. turnover"]
+        turnover[col] = summ[M.TURNOVER]
     return pd.DataFrame(sharpe), pd.DataFrame(pvals), pd.DataFrame(turnover)
 
 
 def format_grid(sharpe: pd.DataFrame, pvals: pd.DataFrame) -> pd.DataFrame:
-    """Sharpe ratio with the bootstrap p-value vs equal weight in brackets."""
     out = sharpe.map(lambda x: f"{x:.2f}").astype(object)
     for c in sharpe.columns:
         for i in sharpe.index:
             p = pvals.loc[i, c] if i in pvals.index else None
             if p is not None and pd.notna(p):
-                out.loc[i, c] = f"{sharpe.loc[i, c]:.2f} (p={p:.2f})"
+                out.loc[i, c] = f"{sharpe.loc[i, c]:.2f} (p = {p:.2f})"
     return out
+
+
+def _update_readme(md: str, readme: Path = Path("README.md")):
+    if not readme.exists():
+        return
+    text = readme.read_text()
+    if README_START not in text or README_END not in text:
+        return
+    head, rest = text.split(README_START, 1)
+    tail = rest.split(README_END, 1)[1]
+    note = ("Each cell is a Sharpe ratio, with the p-value against equal weight in brackets. "
+            "All columns use the Treasury bill rate except the one that sets it to 0%.")
+    readme.write_text(f"{head}{README_START}\n{note}\n\n{md}\n{README_END}{tail}")
+    print("  README.md robustness section updated.")
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--synthetic", action="store_true")
-    p.add_argument("--rf", default=C.RISK_FREE, help='"tbill" (default) or a constant annual rate')
-    p.add_argument("--n-boot", type=int, default=5_000)
+    p.add_argument("--rf", default=C.RISK_FREE, help='"tbill" (default) or a fixed annual rate')
+    p.add_argument("--n-boot", type=int, default=5_000, help="resampled histories per test")
     p.add_argument("--out", default=None)
     a = p.parse_args(argv)
 
@@ -75,7 +91,7 @@ def main(argv=None):
     out.mkdir(parents=True, exist_ok=True)
     rf = data.resolve_risk_free(a.rf, rets.index, synthetic=a.synthetic)
 
-    print(f"Running {len(SCENARIOS)} scenarios ...")
+    print(f"Running {len(SCENARIOS)} settings...")
     sharpe, pvals, turnover = run_scenarios(rets, rf, a.n_boot)
     sharpe.to_csv(out / "robustness_sharpe.csv", float_format="%.4f")
     pvals.to_csv(out / "robustness_pvalues.csv", float_format="%.4f")
@@ -83,29 +99,11 @@ def main(argv=None):
 
     md = format_grid(sharpe, pvals).to_markdown(disable_numparse=True)
     (out / "robustness.md").write_text(md + "\n")
-    print("\nSharpe ratio (bootstrap p-value vs equal weight)\n")
+    print("\nSharpe ratio (p-value against equal weight)\n")
     print(md.replace("<br>", " "))
     if not a.synthetic and a.out is None:
         _update_readme(md)
     return sharpe, pvals
-
-
-START, END = "<!-- ROBUSTNESS:START -->", "<!-- ROBUSTNESS:END -->"
-
-
-def _update_readme(md: str, readme: Path = Path("README.md")):
-    if not readme.exists():
-        return
-    text = readme.read_text()
-    if START not in text or END not in text:
-        return
-    head, rest = text.split(START, 1)
-    tail = rest.split(END, 1)[1]
-    note = ("Sharpe ratio, with the bootstrap p-value against equal weight in brackets. "
-            "Sharpe ratios use the 3-month T-bill rate unless the column says rf = 0%. "
-            "Compare within a column: the 60-month runs start out of sample in 2017.")
-    readme.write_text(f"{head}{START}\n{note}\n\n{md}\n{END}{tail}")
-    print("  README.md robustness section updated.")
 
 
 if __name__ == "__main__":

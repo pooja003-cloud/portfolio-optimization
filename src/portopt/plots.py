@@ -1,4 +1,5 @@
-"""Figures. Colour encodes the strategy family; line style encodes the estimator."""
+"""Charts. Colour shows the type of portfolio; line style shows how it was estimated
+(solid = sample, dashed = Ledoit-Wolf, dotted = Ledoit-Wolf with shrunk means)."""
 
 from __future__ import annotations
 
@@ -13,29 +14,27 @@ import pandas as pd  # noqa: E402
 
 from . import metrics as M  # noqa: E402
 
-# Colour-blind-checked categorical palette, used in fixed order.
+# Checked for colour-blind readers; always used in this order.
 PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
 INK, INK_2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
 FAMILY_COLOR = {
     "Equal weight": PALETTE[0],
-    "Min variance": PALETTE[1],
-    "Max Sharpe": PALETTE[2],
+    "Minimum variance": PALETTE[1],
+    "Maximum Sharpe": PALETTE[2],
     "Risk parity": PALETTE[3],
 }
-STYLE = {"sample": "-", "LW": "--", "LW + shrunk mean": ":"}
 
 
 def _style_for(name: str) -> dict:
     family = next((f for f in FAMILY_COLOR if name.startswith(f)), None)
-    color = FAMILY_COLOR.get(family, INK_2)
-    if "shrunk mean" in name:
-        ls = STYLE["LW + shrunk mean"]
-    elif "(LW" in name:
-        ls = STYLE["LW"]
+    if "shrunk means" in name:
+        ls = ":"
+    elif "Ledoit-Wolf" in name:
+        ls = "--"
     else:
-        ls = STYLE["sample"]
-    return {"color": color, "linestyle": ls, "linewidth": 2}
+        ls = "-"
+    return {"color": FAMILY_COLOR.get(family, INK_2), "linestyle": ls, "linewidth": 2}
 
 
 def _base(ax, title: str, ylabel: str | None = None):
@@ -72,7 +71,7 @@ def plot_frontier(frontiers: dict, assets: pd.DataFrame, points: dict, path: Pat
     indexed by ticker; points: {label: (vol, ret)} for marked portfolios."""
     fig, ax = plt.subplots(figsize=(9, 6))
     for (label, fr), ls in zip(frontiers.items(), ["-", "--"]):
-        ax.plot(fr["volatility"], fr["return"], color=INK, linestyle=ls, linewidth=2, label=f"Frontier ({label})")
+        ax.plot(fr["volatility"], fr["return"], color=INK, linestyle=ls, linewidth=2, label=f"Efficient frontier, {label}")
     ax.scatter(assets["volatility"], assets["return"], s=36, color="#a9a8a3", zorder=3, label="Individual assets")
     for t, row in assets.iterrows():
         ax.annotate(t, (row["volatility"], row["return"]), xytext=(4, 3),
@@ -80,8 +79,8 @@ def plot_frontier(frontiers: dict, assets: pd.DataFrame, points: dict, path: Pat
     for label, (v, r) in points.items():
         st = _style_for(label)
         ax.scatter(v, r, s=90, color=st["color"], edgecolor="white", linewidth=2, zorder=4, label=label)
-    _base(ax, "Efficient frontier (long-only, capped)" + (f" — {subtitle}" if subtitle else ""), "Expected return (ann.)")
-    ax.set_xlabel("Volatility (ann.)", color=INK_2)
+    _base(ax, "Efficient frontier, no short selling, capped weights" + (f" ({subtitle})" if subtitle else ""), "Expected annual return")
+    ax.set_xlabel("Annual volatility", color=INK_2)
     _pct(ax, "y"); _pct(ax, "x")
     ax.legend(frameon=False, fontsize=9, loc="best")
     _save(fig, path)
@@ -92,7 +91,7 @@ def plot_wealth(results: dict, path: Path):
     for name, res in results.items():
         wealth = (1 + res.returns).cumprod()
         ax.plot(wealth.index, wealth.values, label=name, **_style_for(name))
-    _base(ax, "Out-of-sample growth of $1", "Wealth")
+    _base(ax, "Growth of $1 over the test period, 2015-2022 (out of sample)", "Value of $1 invested")
     _legend_below(ax)
     _save(fig, path)
 
@@ -102,7 +101,7 @@ def plot_drawdowns(results: dict, path: Path):
     for name, res in results.items():
         dd = M.drawdown(res.returns)
         ax.plot(dd.index, dd.values, label=name, **_style_for(name))
-    _base(ax, "Out-of-sample drawdowns", "Drawdown from peak")
+    _base(ax, "Drawdowns over the test period: loss from the previous high", "Drawdown")
     _pct(ax, "y")
     _legend_below(ax)
     _save(fig, path)
@@ -110,7 +109,7 @@ def plot_drawdowns(results: dict, path: Path):
 
 def plot_metric_bars(summary: pd.DataFrame, path: Path):
     """Small multiples: one panel per metric, never two scales on one axis."""
-    cols = [("Sharpe ratio", False), ("Ann. volatility", True), ("Max drawdown", True), ("Ann. turnover", True)]
+    cols = [(M.SHARPE, False), (M.VOLATILITY, True), (M.DRAWDOWN, True), (M.TURNOVER, True)]
     fig, axes = plt.subplots(1, len(cols), figsize=(15, 0.45 * len(summary) + 1.6), sharey=True)
     names = summary.index[::-1]
     y = np.arange(len(names))
@@ -153,5 +152,5 @@ def plot_weights(results: dict, path: Path):
     cbar = fig.colorbar(im, ax=axes, fraction=0.02, pad=0.01, shrink=0.5)
     cbar.ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0, decimals=0))
     cbar.set_label("Target weight", color=INK_2)
-    fig.suptitle("Target weights at each rebalance", x=0.01, ha="left", fontsize=12, fontweight="bold")
+    fig.suptitle("Weights chosen at each quarterly rebalance", x=0.01, ha="left", fontsize=12, fontweight="bold")
     _save(fig, path)
