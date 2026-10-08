@@ -10,7 +10,7 @@ Textbook portfolio optimization takes forecasts of each asset's return and risk 
 
 ### Why I tested it
 
-I'd already built a mean-variance portfolio study in MATLAB, and I wanted to do two things with it. The first was to rebuild it in Python with the tools used in industry (pandas, cvxpy, scikit-learn), so that anyone can rerun it and check the results. The second was to go a step further. Finding the "best" portfolio using all of the data at once is easy, and it always looks good. What I wanted to know was which approach would actually have held up for someone investing in real time, with only the past to go on, and whether any differences between the strategies were real or just luck.
+I wanted to rebuild a mean-variance study I'd done in MATLAB in Python, so anyone can rerun and check it. More importantly, I wanted to know which approach would actually have held up for someone investing in real time with only past data, and whether the differences between strategies were real or just luck.
 
 ### How I tested it
 
@@ -20,7 +20,7 @@ Every three months from 2015 to 2022, each strategy looked only at the previous 
 
 ### What I found
 
-- **No strategy reliably beat splitting the money equally.** The best optimized portfolio earned 0.52 units of return per unit of risk (its Sharpe ratio), against 0.46 for the equal split. A statistical test says a gap that small could easily be luck: if the two were really equally good, a gap at least this big would still show up 78% of the time.
+- **No strategy reliably beat splitting the money equally.** The best optimized portfolio earned 0.52 units of return above the Treasury bill rate per unit of risk (its Sharpe ratio), against 0.46 for the equal split. A statistical test says a gap that small could easily be luck: if the two were really equally good, a gap at least this big would still show up 78% of the time.
 - **The optimizer traded about nine times as much.** It replaced 77% of the portfolio each year, against 8% for the equal split, because small changes in its return forecasts kept moving its choices around.
 - **A standard fix helped some strategies, but not the one that needed it most.** Ledoit-Wolf shrinkage cleans up the risk estimates, and it improved the strategies that rely only on risk. It didn't help the optimizer, whose real weakness was its return forecasts.
 
