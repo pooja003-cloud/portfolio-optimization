@@ -4,13 +4,21 @@ A Python rebuild of a portfolio study I first did in MATLAB, tested on 13 exchan
 
 ## The short version
 
-**The question.** Textbook portfolio optimization takes forecasts of each asset's return and risk and finds the "best" mix. On paper it always beats simply splitting your money equally. But in real life those forecasts have to come from past data, and past data is a noisy guide. So does the optimized portfolio still win once it has to work with real, imperfect forecasts?
+### The question
 
-**How I tested it.** Every three months from 2015 to 2022, each strategy looked only at the previous three years of data, picked its portfolio, and held it until the next update. Then I compared how they actually did over those eight years.
+Textbook portfolio optimization takes forecasts of each asset's return and risk and finds the "best" mix. On paper it always beats simply splitting your money equally. But in real life those forecasts have to come from past data, and past data is a noisy guide. So does the optimized portfolio still win once it has to work with real, imperfect forecasts?
+
+### Why I tested it
+
+I'd already built a mean-variance portfolio study in MATLAB, and I wanted to do two things with it. The first was to rebuild it in Python with the tools used in industry (pandas, cvxpy, scikit-learn), so that anyone can rerun it and check the results. The second was to go a step further. Finding the "best" portfolio using all of the data at once is easy, and it always looks good. What I wanted to know was which approach would actually have held up for someone investing in real time, with only the past to go on, and whether any differences between the strategies were real or just luck.
+
+### How I tested it
+
+Every three months from 2015 to 2022, each strategy looked only at the previous three years of data, picked its portfolio, and held it until the next update. Then I compared how they actually did over those eight years.
 
 ![Growth of $1 invested in each strategy over the test period](results/figures/cumulative_wealth.png)
 
-**What I found.**
+### What I found
 
 - **No strategy reliably beat splitting the money equally.** The best optimized portfolio earned 0.52 units of return per unit of risk (its Sharpe ratio), against 0.46 for the equal split. A statistical test says a gap that small could easily be luck: if the two were really equally good, a gap at least this big would still show up 78% of the time.
 - **The optimizer traded about nine times as much.** It replaced 77% of the portfolio each year, against 8% for the equal split, because small changes in its return forecasts kept moving its choices around.
