@@ -1,6 +1,6 @@
 # Portfolio optimization: which allocation survives out of sample?
 
-A Python rebuild of a portfolio study I first did in MATLAB, tested on 13 exchange-traded funds from 2012 to 2022.
+Originally built in MATLAB for my master's coursework in quantitative finance at Northeastern University (2023). Rebuilt and extended in Python in 2026: tested on 13 exchange-traded funds from 2012 to 2022, with a follow-up check on 2023–2025.
 
 ## The short version
 
@@ -20,11 +20,31 @@ Every three months from 2015 to 2022, each strategy looked only at the previous 
 
 ### What I found
 
-- **No strategy reliably beat splitting the money equally.** The best optimized portfolio earned 0.52 units of return above the Treasury bill rate per unit of risk (its Sharpe ratio), against 0.46 for the equal split. A statistical test says a gap that small could easily be luck: if the two were really equally good, a gap at least this big would still show up 78% of the time.
-- **The optimizer traded about nine times as much.** It replaced 77% of the portfolio each year, against 8% for the equal split, because small changes in its return forecasts kept moving its choices around.
-- **A standard fix helped some strategies, but not the one that needed it most.** Ledoit-Wolf shrinkage cleans up the risk estimates, and it improved the strategies that rely only on risk. It didn't help the optimizer, whose real weakness was its return forecasts.
+The short answer is that it depends on the period, and that turned out to be the most interesting result.
 
-All the numbers, the tests behind them and their limits are below. Terms are explained in the [glossary](#glossary) at the end, and there's also a [commentary written by an AI model](results/commentary.md) from the results.
+- **2015–2022: no strategy reliably beat splitting the money equally.** The best optimized portfolio, maximum Sharpe, earned 0.52 units of return above the Treasury bill rate per unit of risk (its Sharpe ratio), against 0.46 for the equal split. A gap that small could easily be luck: if the two were really equally good, a gap at least this big would still show up 78% of the time. And it traded about nine times as much (77% of the portfolio a year against 8%).
+- **2023–2025: maximum Sharpe won by a wide margin.** Rerun unchanged on newer data, it returned about 24% a year against 13% for the equal split, a Sharpe ratio of 2.0 against 0.86. Within those three years that gap is too big to be luck (p = 0.01). It got there by concentrating in the previous years' winners (US stocks, especially technology, gold and commodities) and skipping bonds, and most of those trends kept going.
+- **Over all 11 years, its lead still isn't proven.** Maximum Sharpe comes out ahead, 0.89 against 0.56, but the test can't rule out luck (p = 0.13). The one result that is clear over the full span is negative: minimum variance did worse than the equal split (p = 0.03).
+- **Ledoit-Wolf shrinkage helped where you'd expect, but it wasn't the deciding factor.** It cleans up the risk estimates, which helps the strategies that rely only on risk. Maximum Sharpe's results were driven by its return forecasts, and that's what made it swing between periods.
+
+All the numbers, the tests behind them and their limits are below. Terms are explained in the [glossary](#glossary) at the end, and there's also a [commentary written by an AI model](results/commentary.md) on the 2015–2022 results.
+
+## Original (2023) versus rebuild (2026)
+
+| Part of the study | 2023 course project (MATLAB) | 2026 rebuild (Python) |
+|---|---|---|
+| Expected returns, covariance matrix and the efficient frontier | Yes | Rebuilt |
+| Equal weight, minimum variance, maximum Sharpe and risk parity portfolios | Yes | Rebuilt |
+| Rolling out-of-sample backtest on the same 13 funds, 2012–2022 | Yes | Rebuilt |
+| Ledoit-Wolf shrinkage and the shrunk-means version of maximum Sharpe | | New |
+| The 3-month Treasury bill rate as the risk-free rate | | New |
+| Block-bootstrap tests of whether Sharpe ratio gaps are real | | New |
+| Robustness checks: trading costs, a tighter cap, a 5-year window, a 0% risk-free rate | | New |
+| The 2023–2025 check on data the original never saw | | New |
+| Automated tests (including one that proves no future data leaks in), run on every change | | New |
+| The AI-written commentary | | New |
+
+The main thing the rebuild adds is asking whether the differences between strategies are bigger than luck.
 
 ## What I tested
 
@@ -130,7 +150,7 @@ Each cell is a Sharpe ratio, with the p-value against equal weight in brackets. 
 
 All numbers here are from the main setup (36-month window, 30% cap, no trading costs, Treasury bill rate), unless I say otherwise.
 
-**Nothing beat the equal split by more than luck could explain.** Maximum Sharpe with the sample covariance had the best Sharpe ratio, 0.52 against 0.46. But the 95% interval for that gap runs from −0.44 to +0.57, so the data can't tell the two apart (p = 0.78). Across all six settings, no strategy's p-value gets below 0.14.
+**In 2015–2022, nothing beat the equal split by more than luck could explain.** Maximum Sharpe with the sample covariance had the best Sharpe ratio, 0.52 against 0.46. But the 95% interval for that gap runs from −0.44 to +0.57, so the data can't tell the two apart (p = 0.78). Across all six settings, no strategy's p-value gets below 0.14.
 
 **Maximum Sharpe chased whatever had done well lately.** It usually held about five funds and swapped roughly a fifth of the portfolio every quarter, for 77% turnover a year. In 2022 you can watch it happen in the weights chart: as bonds fell, it moved out of Treasuries and inflation-protected bonds and into gold and commodities, hitting the 30% cap in both by October. Trading costs of 0.1% per trade barely dent its Sharpe ratio here, but all that trading bought no reliable improvement.
 
@@ -142,7 +162,47 @@ All numbers here are from the main setup (36-month window, 30% cap, no trading c
 
 **"Minimum variance" didn't mean safe in 2022.** Going into 2022 it held 95% in bonds, the funds that had been calmest over the previous three years. Then rates rose and bonds fell along with stocks. Despite 5% volatility it lost 15% from its peak. Every strategy hit its worst point in the same stretch, January to September 2022.
 
-**Why the equal split is so hard to beat.** It doesn't forecast anything, so it can't get a forecast wrong. DeMiguel, Garlappi and Uppal (2009) found the same thing across many datasets: optimized portfolios built from historical estimates rarely beat the equal split out of sample. The no-short-selling rule and the 30% cap help the optimizers here, because they stop the most extreme bets that bad forecasts would otherwise produce.
+**Why the equal split is so hard to beat.** It doesn't forecast anything, so it can't get a forecast wrong. DeMiguel, Garlappi and Uppal (2009) found the same thing across many datasets: optimized portfolios built from historical estimates rarely beat the equal split out of sample. That held here for 2015–2022. The 2023–2025 check (below) is the exception, and it shows what an optimizer needs to win: the past returns it's built on have to keep going. The no-short-selling rule and the 30% cap help the optimizers throughout, because they stop the most extreme bets that bad forecasts would otherwise produce.
+
+## Does it still hold? 2023–2025
+
+In 2026 I reran the study, unchanged, on three years of data the original never saw. Same strategies, same 36-month window, same quarterly rebalancing, same 30% cap. The first portfolios, chosen in January 2023, are built from 2020–2022 data; every month after that is new.
+
+Thirty-six months is a short test, so the p-values here have even less power than in the main study. Treat this as a check on whether the pattern held, not as new proof.
+
+<!-- EXTENSION:START -->
+Sharpe ratios for both periods, with the p-value against equal weight in brackets. The 2023-2025 test has 36 months. The Treasury bill rate averaged 4.7% a year over 2023-2025, against 0.9% over 2015-2022, so Sharpe ratios here are measured against a higher bar.
+
+|                                            | Sharpe ratio, 2015-2022   | Sharpe ratio, 2023-2025   | Annual return, 2023-2025   | Maximum drawdown, 2023-2025   | Annual turnover, 2023-2025   |
+|:-------------------------------------------|:--------------------------|:--------------------------|:---------------------------|:------------------------------|:-----------------------------|
+| Equal weight                               | 0.46                      | 0.86                      | 12.8%                      | -8.0%                         | 6.9%                         |
+| Minimum variance (sample)                  | 0.19 (p = 0.15)           | 0.31 (p = 0.02)           | 6.4%                       | -3.8%                         | 26.4%                        |
+| Minimum variance (Ledoit-Wolf)             | 0.25 (p = 0.23)           | 0.34 (p = 0.02)           | 6.6%                       | -3.7%                         | 22.2%                        |
+| Maximum Sharpe (sample)                    | 0.52 (p = 0.78)           | 1.99 (p = 0.01)           | 23.6%                      | -5.9%                         | 59.4%                        |
+| Maximum Sharpe (Ledoit-Wolf)               | 0.45 (p = 0.98)           | 2.00 (p = 0.01)           | 23.8%                      | -6.2%                         | 56.5%                        |
+| Maximum Sharpe (Ledoit-Wolf, shrunk means) | 0.46 (p = 0.98)           | 1.81 (p = 0.01)           | 22.3%                      | -6.5%                         | 63.5%                        |
+| Risk parity (sample)                       | 0.31 (p = 0.26)           | 0.81 (p = 0.52)           | 11.1%                      | -6.4%                         | 12.8%                        |
+| Risk parity (Ledoit-Wolf)                  | 0.34 (p = 0.28)           | 0.81 (p = 0.54)           | 11.2%                      | -6.5%                         | 12.1%                        |
+
+**Both periods together.** The same comparison over the whole test period, 2015-01 to 2025-12 (132 months):
+
+| 2015-01 to 2025-12 (132 months)            | Sharpe ratio   | Annual return   | Maximum drawdown   | Difference from equal weight   | 95% interval for the difference   | p-value   |
+|:-------------------------------------------|:---------------|:----------------|:-------------------|:-------------------------------|:----------------------------------|:----------|
+| Equal weight                               | 0.56           | 7.0%            | -20.0%             |                                |                                   |           |
+| Minimum variance (sample)                  | 0.22           | 3.0%            | -14.8%             | -0.34                          | -0.63 to -0.03                    | 0.03      |
+| Minimum variance (Ledoit-Wolf)             | 0.28           | 3.4%            | -14.1%             | -0.29                          | -0.56 to +0.00                    | 0.05      |
+| Maximum Sharpe (sample)                    | 0.89           | 10.0%           | -17.1%             | +0.33                          | -0.10 to +0.78                    | 0.13      |
+| Maximum Sharpe (Ledoit-Wolf)               | 0.82           | 9.8%            | -19.7%             | +0.26                          | -0.16 to +0.69                    | 0.22      |
+| Maximum Sharpe (Ledoit-Wolf, shrunk means) | 0.85           | 8.9%            | -16.1%             | +0.29                          | -0.08 to +0.65                    | 0.12      |
+| Risk parity (sample)                       | 0.45           | 5.1%            | -18.2%             | -0.11                          | -0.30 to +0.09                    | 0.26      |
+| Risk parity (Ledoit-Wolf)                  | 0.47           | 5.3%            | -18.8%             | -0.10                          | -0.26 to +0.08                    | 0.27      |
+
+![Growth of $1 over 2023-2025](results/extension_2023_2025/figures/cumulative_wealth.png)
+<!-- EXTENSION:END -->
+
+**What changed.** Maximum Sharpe went from no measurable edge to a large one. It held about 27% in the Nasdaq-100 fund (QQQ), 24% in gold, 22% in the S&P 500 fund and 21% in commodities on average. Those were exactly the four funds with the best return per unit of risk over 2020–2022, while the three Treasury bond funds had the worst. Stocks and gold then kept rising: the Nasdaq-100 gained 55% in 2023 and gold 64% in 2025. It held almost no Treasury bonds, which went nowhere while rates stayed high. The equal split kept about 38% in bonds. All three versions of maximum Sharpe did about equally well, so Ledoit-Wolf and the shrunk means made little difference here. Minimum variance was again the weakest, and here its gap to the equal split is significant (p = 0.02).
+
+**Why I don't read this as "maximum Sharpe works".** A forecast built from past returns is a bet that recent trends continue. In 2023–2025 they did; in 2015–2022, with reversals like 2018 and 2022, they didn't. The p-value of 0.01 says the gap was real *within those three years*. It doesn't say anything about whether the next three will look the same, and the strategy was concentrated in four funds. Put both periods together and the edge is no longer statistically clear (p = 0.13), even though it's large in size. My conclusion from the two periods together: maximum Sharpe is a much bigger bet than it looks. It can beat the equal split by a lot or by nothing, depending on whether recent winners keep winning.
 
 ## How it works
 
@@ -177,7 +237,8 @@ pip install -e ".[dev]"
 
 python -m portopt.run            # downloads the data once, runs everything, updates this README
 python -m portopt.robustness     # the robustness table above
-python -m pytest                 # 38 tests
+python -m portopt.extension      # the 2023–2025 check (downloads 2020–2025 data once)
+python -m pytest                 # 41 tests
 ```
 
 Other options:
@@ -207,9 +268,10 @@ src/portopt/
   plots.py         charts
   commentary.py    builds the prompt for the AI commentary (optional API call)
   run.py           runs the whole study from the command line
-tests/             38 tests, including no look-ahead, risk parity, costs, the bootstrap and risk-free rate timing
+  extension.py     the 2023–2025 check
+tests/             41 tests, including no look-ahead, risk parity, costs, the bootstrap and risk-free rate timing
 results/           tables, charts, chosen weights, monthly returns and the commentary
-data/              cached fund returns and Treasury bill rates
+data/              cached fund returns and Treasury bill rates (2012–2022, and 2020–2025 for the extension)
 ```
 
 ## From MATLAB to Python
@@ -227,7 +289,7 @@ data/              cached fund returns and Treasury bill rates
 
 ## Limits and next steps
 
-- This is one stretch of history and one set of funds. 2015 to 2022 had a long stock rally and then 2022, when stocks and bonds fell together. Both matter a lot for these rankings.
+- This is one set of funds, and the main test is one stretch of history. 2015 to 2022 had a long stock rally and then 2022, when stocks and bonds fell together. Both matter a lot for these rankings. The 2023–2025 check helps, but three years is short.
 - Eight years isn't much for this kind of test. A real Sharpe ratio gap of 0.2 would usually go undetected, so "not significant" means "can't tell apart", not "the same".
 - Things I'd try next: Black-Litterman return forecasts, hierarchical risk parity, a factor model for risk, a turnover penalty inside the optimizer, and starting in 2007 so the test includes 2008.
 
