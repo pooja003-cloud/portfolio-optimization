@@ -8,13 +8,16 @@ choose the weights that earn month t's return.
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from typing import Callable
 
 import numpy as np
 import pandas as pd
 
+from .config import PERIODS_PER_YEAR
 from .estimators import COV_ESTIMATORS, mean_returns
+from .metrics import rf_monthly
 
 
 @dataclass
@@ -41,11 +44,17 @@ def run_backtest(
     rebalance_every: int = 3,
     cap: float | None = 0.30,
     cost_bps: float = 0.0,
+    rf=0.0,
 ) -> BacktestResult:
+    """rf: constant annual rate or Series of monthly rates (see metrics.rf_monthly).
+    Strategies whose weight function takes an `rf` argument receive the rate
+    known at each rebalance date, annualized."""
     if window >= len(rets):
         raise ValueError(f"Window ({window}) must be shorter than the sample ({len(rets)} months).")
 
     R = rets.values
+    rf_m = rf_monthly(rf, rets.index).values
+    wants_rf = "rf" in inspect.signature(strategy.weight_fn).parameters
     n_obs, n_assets = R.shape
     port_rets = np.full(n_obs, np.nan)
     w_hold = np.zeros(n_assets)          # current (drifted) holdings, starts in cash
@@ -56,7 +65,10 @@ def run_backtest(
             hist = rets.iloc[t - window : t]           # strictly before month t
             mu = strategy.mean_fn(hist)
             cov = COV_ESTIMATORS[strategy.cov_method](hist)
-            target = strategy.weight_fn(mu, cov, cap, **strategy.kwargs).values
+            kw = dict(strategy.kwargs)
+            if wants_rf:
+                kw.setdefault("rf", rf_m[t] * PERIODS_PER_YEAR)
+            target = strategy.weight_fn(mu, cov, cap, **kw).values
 
             date = rets.index[t]
             weights[date] = target

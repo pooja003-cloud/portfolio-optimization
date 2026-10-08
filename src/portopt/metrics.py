@@ -17,9 +17,24 @@ def ann_vol(r: pd.Series, periods: int = PERIODS_PER_YEAR) -> float:
     return float(r.std(ddof=1) * np.sqrt(periods))
 
 
-def sharpe(r: pd.Series, rf: float = 0.0, periods: int = PERIODS_PER_YEAR) -> float:
-    """Annualized Sharpe ratio of monthly returns, rf given as an annual rate."""
-    excess = r - rf / periods
+def rf_monthly(rf, index: pd.Index, periods: int = PERIODS_PER_YEAR) -> pd.Series:
+    """Monthly risk-free rate aligned to `index`.
+
+    rf is either a constant *annual* rate (float) or a Series of *monthly*
+    rates indexed by month-end, as returned by data.download_risk_free().
+    """
+    if isinstance(rf, pd.Series):
+        out = rf.reindex(index)
+        if out.isna().any():
+            missing = out.index[out.isna()]
+            raise ValueError(f"Risk-free rate missing for {len(missing)} month(s), e.g. {missing[0]:%Y-%m}.")
+        return out
+    return pd.Series(float(rf) / periods, index=index)
+
+
+def sharpe(r: pd.Series, rf=0.0, periods: int = PERIODS_PER_YEAR) -> float:
+    """Annualized Sharpe ratio of monthly returns in excess of the risk-free rate."""
+    excess = r - rf_monthly(rf, r.index, periods)
     sd = excess.std(ddof=1)
     return float(excess.mean() / sd * np.sqrt(periods)) if sd > 0 else np.nan
 

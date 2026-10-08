@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from .config import PERIODS_PER_YEAR
+from .metrics import rf_monthly
 
 
 def _sharpe_cols(x: np.ndarray, periods: int) -> np.ndarray:
@@ -31,7 +32,7 @@ def block_indices(n: int, block: int, n_boot: int, rng: np.random.Generator) -> 
 def sharpe_diff_test(
     r: pd.Series,
     bench: pd.Series,
-    rf: float = 0.0,
+    rf=0.0,
     block: int = 6,
     n_boot: int = 10_000,
     seed: int = 0,
@@ -42,7 +43,8 @@ def sharpe_diff_test(
     Returns the observed difference, a 95% percentile interval and a two-sided
     p-value from the bootstrap distribution re-centred on zero.
     """
-    x = pd.concat([r, bench], axis=1).dropna().values - rf / periods
+    both = pd.concat([r, bench], axis=1).dropna()
+    x = both.values - rf_monthly(rf, both.index, periods).values[:, None]
     obs = _sharpe_cols(x, periods)
     d_obs = obs[0] - obs[1]
 
@@ -57,15 +59,15 @@ def sharpe_diff_test(
             "ci_low": lo, "ci_high": hi, "p_value": p}
 
 
-def sharpe_se(r: pd.Series, rf: float = 0.0, periods: int = PERIODS_PER_YEAR) -> float:
+def sharpe_se(r: pd.Series, rf=0.0, periods: int = PERIODS_PER_YEAR) -> float:
     """Lo (2002) iid standard error of an annualized Sharpe ratio."""
-    ex = r - rf / periods
+    ex = r - rf_monthly(rf, r.index, periods)
     sr_m = ex.mean() / ex.std(ddof=1)
     return float(np.sqrt((1 + 0.5 * sr_m**2) / len(ex)) * np.sqrt(periods))
 
 
 def significance_table(
-    results: dict, benchmark: str = "Equal weight", rf: float = 0.0, **kwargs
+    results: dict, benchmark: str = "Equal weight", rf=0.0, **kwargs
 ) -> pd.DataFrame:
     bench = results[benchmark].returns
     rows = {}

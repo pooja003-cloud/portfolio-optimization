@@ -184,3 +184,43 @@ def test_pure_noise_is_not_significant_on_average():
         b = pd.Series(rng.normal(0.005, 0.04, 96))
         pvals.append(S.sharpe_diff_test(a, b, n_boot=500)["p_value"])
     assert np.mean(np.array(pvals) < 0.05) <= 0.15
+
+
+# ---------------------------------------------------------------- risk-free rate
+def test_tbill_is_lagged_one_month_and_converted_to_monthly():
+    fred = pd.Series([1.2, 2.4, 3.6], index=pd.to_datetime(["2022-01-01", "2022-02-01", "2022-03-01"]))
+    rf = data.tbill_to_monthly(fred)
+    # February earns January's average yield (1.2% a year -> 0.1% a month), and so on.
+    assert list(rf.index) == list(pd.to_datetime(["2022-02-28", "2022-03-31"]))
+    assert rf.tolist() == pytest.approx([0.001, 0.002])
+
+
+def test_sharpe_uses_a_time_varying_rate(rets):
+    r = rets["SPY"]
+    rf = pd.Series(np.linspace(0, 0.004, len(r)), index=r.index)
+    ex = r - rf
+    assert M.sharpe(r, rf) == pytest.approx(ex.mean() / ex.std(ddof=1) * np.sqrt(12))
+    assert M.sharpe(r, 0.024) == pytest.approx(M.sharpe(r, pd.Series(0.002, index=r.index)))
+
+
+def test_missing_risk_free_months_raise(rets):
+    rf = pd.Series(0.001, index=rets.index[:-5])
+    with pytest.raises(ValueError):
+        M.sharpe(rets["SPY"], rf)
+
+
+def test_max_sharpe_sees_the_rate_known_at_each_rebalance(rets):
+    """With a huge rate in the second half, no portfolio beats cash, so max Sharpe
+    must fall back to min variance there and only there."""
+    rf = pd.Series(0.0, index=rets.index)
+    rf.iloc[72:] = 0.05                                    # 60% a year
+    ms = B.run_backtest(rets, B.Strategy("ms", O.max_sharpe), window=36, cap=CAP, rf=rf)
+    mv = B.run_backtest(rets, B.Strategy("mv", O.min_variance), window=36, cap=CAP, rf=rf)
+    late = ms.weights.index >= rets.index[72]
+    assert np.allclose(ms.weights[late], mv.weights[late], atol=1e-6)
+    assert not np.allclose(ms.weights[~late], mv.weights[~late], atol=1e-3)
+
+
+def test_resolve_risk_free_options(rets):
+    assert data.resolve_risk_free("0.02", rets.index) == pytest.approx(0.02)
+    assert data.resolve_risk_free("tbill", rets.index, synthetic=True) == 0.0

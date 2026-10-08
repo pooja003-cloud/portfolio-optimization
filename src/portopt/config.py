@@ -24,7 +24,10 @@ END = "2022-12-31"
 ESTIMATION_WINDOW = 36      # months of history used at each rebalance (3 to 5 years -> 36 to 60)
 REBALANCE_EVERY = 3         # months (quarterly)
 WEIGHT_CAP = 0.30           # max weight per asset; long-only throughout
-RISK_FREE = 0.0             # annual risk-free rate used in Sharpe ratios
+# Risk-free rate: "tbill" = 3-month US T-bill (FRED series TB3MS), varying by
+# month; or a number = constant annual rate (e.g. 0.0).
+RISK_FREE = "tbill"
+FRED_SERIES = "TB3MS"
 COST_BPS = 0.0              # one-way transaction cost in basis points (0 = frictionless)
 
 PERIODS_PER_YEAR = 12

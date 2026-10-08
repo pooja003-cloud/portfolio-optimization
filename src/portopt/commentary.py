@@ -63,7 +63,7 @@ def write_commentary(prompt: str, out_dir: Path, enabled: bool = True) -> Path:
     if not enabled:
         return out_dir / "commentary_prompt.md"
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("  ANTHROPIC_API_KEY not set: saved the prompt to commentary_prompt.md instead.")
+        print("  No API key: paste results/commentary_prompt.md into Claude and save the reply as results/commentary.md.")
         return out_dir / "commentary_prompt.md"
     try:
         text = generate(prompt)

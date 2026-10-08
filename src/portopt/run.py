@@ -18,8 +18,10 @@ from . import commentary, config as C, data, estimators as E, metrics as M, opti
 from .backtest import Strategy, run_all
 
 
-def build_strategies(rf: float) -> list[Strategy]:
-    ms = partial(O.max_sharpe, rf=rf)
+def build_strategies() -> list[Strategy]:
+    # max_sharpe takes an `rf` argument, so the backtest passes it the T-bill
+    # rate known at each rebalance date.
+    ms = O.max_sharpe
     return [
         Strategy("Equal weight", O.equal_weight),
         Strategy("Min variance (sample)", O.min_variance, "sample"),
@@ -62,7 +64,8 @@ def parse_args(argv=None):
     p.add_argument("--window", type=int, default=C.ESTIMATION_WINDOW, help="estimation window in months")
     p.add_argument("--rebalance", type=int, default=C.REBALANCE_EVERY, help="months between rebalances")
     p.add_argument("--cap", type=float, default=C.WEIGHT_CAP, help="max weight per asset")
-    p.add_argument("--rf", type=float, default=C.RISK_FREE, help="annual risk-free rate")
+    p.add_argument("--rf", default=C.RISK_FREE,
+                   help='"tbill" (3-month T-bill from FRED, default) or a constant annual rate, e.g. 0')
     p.add_argument("--cost-bps", type=float, default=C.COST_BPS, help="one-way trading cost in bps")
     p.add_argument("--out", default=None, help="output folder (default: results/)")
     p.add_argument("--refresh", action="store_true", help="re-download data even if cached")
@@ -86,6 +89,9 @@ def main(argv=None):
         rets = data.download_returns(a.tickers, a.start, a.end, refresh=a.refresh)
     print(f"  {rets.shape[0]} months x {rets.shape[1]} assets "
           f"({rets.index[0]:%Y-%m} to {rets.index[-1]:%Y-%m})")
+    rf = data.resolve_risk_free(a.rf, rets.index, synthetic=a.synthetic, refresh=a.refresh)
+    rf_full = M.rf_monthly(rf, rets.index)
+    rf_ann_avg = float(rf_full.mean() * C.PERIODS_PER_YEAR)
 
     # 2. Full-sample estimates and efficient frontier (in sample) ----------
     mu = E.mean_returns(rets)
@@ -98,10 +104,10 @@ def main(argv=None):
     }
     in_sample, points = {}, {}
     for label, fn in [("Equal weight", O.equal_weight), ("Min variance", O.min_variance),
-                      ("Max Sharpe", partial(O.max_sharpe, rf=a.rf)), ("Risk parity", O.risk_parity)]:
+                      ("Max Sharpe", partial(O.max_sharpe, rf=rf_ann_avg)), ("Risk parity", O.risk_parity)]:
         w = fn(mu, cov_s, a.cap)
         in_sample[label] = w
-        st = O.portfolio_stats(w, mu, cov_s, a.rf)
+        st = O.portfolio_stats(w, mu, cov_s, rf_ann_avg)
         points[label] = (st["volatility"], st["return"])
     P.plot_frontier(frontiers, assets, points, figs / "efficient_frontier.png", "full sample, in sample")
     pd.DataFrame(in_sample).to_csv(out / "in_sample_weights.csv", float_format="%.4f")
@@ -109,21 +115,21 @@ def main(argv=None):
     # 3-4. Rolling out-of-sample backtest ---------------------------------
     print(f"Backtesting: {a.window}-month window, rebalance every {a.rebalance} months, "
           f"cap {a.cap:.0%}, cost {a.cost_bps:g} bps ...")
-    results = run_all(rets, build_strategies(a.rf), window=a.window,
-                      rebalance_every=a.rebalance, cap=a.cap, cost_bps=a.cost_bps)
+    results = run_all(rets, build_strategies(), window=a.window,
+                      rebalance_every=a.rebalance, cap=a.cap, cost_bps=a.cost_bps, rf=rf)
 
     if O.FALLBACKS:
         for why, k in O.FALLBACKS.items():
             print(f"  note: {k} rebalance(s) fell back to min-variance ({why})")
 
     # 5. Compare -----------------------------------------------------------
-    summary = M.summarize(results, a.rf)
+    summary = M.summarize(results, rf)
     summary.to_csv(out / "metrics.csv", float_format="%.6f")
     table_md = M.format_table(summary).to_markdown()
     (out / "metrics.md").write_text(table_md + "\n")
     print("\n" + table_md + "\n")
 
-    sig = S.significance_table(results, rf=a.rf)
+    sig = S.significance_table(results, rf=rf)
     sig.to_csv(out / "significance.csv", float_format="%.4f")
     sig_md = S.format_significance(sig).to_markdown(disable_numparse=True)
     (out / "significance.md").write_text(sig_md + "\n")
@@ -151,7 +157,11 @@ def main(argv=None):
         "Out-of-sample period": f"{oos[0]:%Y-%m} to {oos[-1]:%Y-%m} ({len(oos)} months)",
         "Estimation window": f"{a.window} months, rebalanced every {a.rebalance} months",
         "Constraints": f"long-only, max {a.cap:.0%} per asset, fully invested",
-        "Risk-free rate in Sharpe": f"{a.rf:.2%} p.a.",
+        "Risk-free rate in Sharpe": (
+            f"3-month US T-bill (FRED TB3MS), varying monthly; averaged "
+            f"{M.rf_monthly(rf, oos).mean() * 12:.2%} p.a. out of sample "
+            f"(range {M.rf_monthly(rf, oos).min() * 12:.2%} to {M.rf_monthly(rf, oos).max() * 12:.2%})"
+            if isinstance(rf, pd.Series) else f"{rf:.2%} p.a. (constant)"),
         "Transaction costs": f"{a.cost_bps:g} bps one-way",
     }
     sig_lines = [f"{n}: Sharpe difference vs equal weight {row.iloc[1]:+.2f}, bootstrap p-value {row['p-value']:.2f}"

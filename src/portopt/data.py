@@ -71,3 +71,96 @@ def synthetic_returns(
     r = alpha + np.outer(f_eq, eq_beta) + np.outer(f_rt, rt_beta) + idio
     idx = pd.date_range(start, periods=n_months, freq="ME")
     return pd.DataFrame(r, index=idx, columns=tickers)
+
+
+# --------------------------------------------------------------------------- #
+# Risk-free rate
+# --------------------------------------------------------------------------- #
+FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}"
+
+
+def tbill_to_monthly(yields_pct: pd.Series) -> pd.Series:
+    """Turn a monthly-average T-bill yield (annual %, one row per month) into the
+    monthly risk-free return earned in each *following* month.
+
+    The rate for, say, March is February's average yield / 12: the rate an
+    investor could lock in at the start of March. It is indexed by month-end
+    so it lines up with the return series.
+    """
+    s = yields_pct.astype(float).dropna().copy()
+    s.index = pd.to_datetime(s.index) + pd.offsets.MonthEnd(0)
+    s = s.groupby(level=0).mean()                 # one value per month
+    return (s / 100 / 12).shift(1).dropna().rename("rf")
+
+
+def _fetch_fred(series: str) -> pd.Series:
+    import io
+
+    import requests  # installed with yfinance; uses certifi, so no macOS SSL issues
+
+    resp = requests.get(FRED_URL.format(series=series), timeout=30)
+    resp.raise_for_status()
+    df = pd.read_csv(io.StringIO(resp.text), index_col=0)
+    col = series if series in df.columns else df.columns[0]
+    return pd.to_numeric(df[col], errors="coerce")
+
+
+def _fetch_irx(start: str, end: str) -> pd.Series:
+    """Fallback: Yahoo's ^IRX (13-week T-bill yield, annual %), averaged by month."""
+    import yfinance as yf
+
+    raw = yf.download("^IRX", start=start, end=end, auto_adjust=False, progress=False)
+    close = raw["Close"]
+    close = close.iloc[:, 0] if isinstance(close, pd.DataFrame) else close
+    return close.resample("ME").mean()
+
+
+def download_risk_free(
+    start: str,
+    end: str,
+    series: str = "TB3MS",
+    cache: str | Path | None = "data/tbill.csv",
+    refresh: bool = False,
+) -> pd.Series:
+    """Monthly risk-free rate (decimal per month), indexed by month-end.
+
+    Source: FRED 3-month T-bill (TB3MS). If FRED is unreachable, falls back to
+    Yahoo's ^IRX. Cached to CSV like the returns.
+    """
+    cache = Path(cache) if cache else None
+    if cache and cache.exists() and not refresh:
+        return pd.read_csv(cache, index_col=0, parse_dates=True)["rf"]
+
+    pad = (pd.Timestamp(start) - pd.DateOffset(months=2)).strftime("%Y-%m-%d")
+    try:
+        y = _fetch_fred(series)
+        source = f"FRED {series}"
+    except Exception as exc:  # noqa: BLE001
+        print(f"  FRED unavailable ({type(exc).__name__}); using Yahoo ^IRX instead.")
+        y = _fetch_irx(pad, end)
+        source = "Yahoo ^IRX"
+
+    rf = tbill_to_monthly(y).loc[start:end]
+    if rf.empty:
+        raise RuntimeError("No risk-free data returned.")
+    if cache:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        rf.rename_axis("date").to_frame().to_csv(cache)
+    print(f"  Risk-free rate: {source}, {rf.index[0]:%Y-%m} to {rf.index[-1]:%Y-%m}")
+    return rf
+
+
+def resolve_risk_free(spec, index: pd.DatetimeIndex, synthetic: bool = False, refresh: bool = False):
+    """Turn the --rf option into what the rest of the code expects.
+
+    "tbill" -> Series of monthly rates aligned to `index`; a number -> float
+    annual rate. Synthetic runs never download and use 0%.
+    """
+    if isinstance(spec, str) and spec.lower() == "tbill":
+        if synthetic:
+            return 0.0
+        start = index[0].strftime("%Y-%m-01")
+        end = index[-1].strftime("%Y-%m-%d")
+        rf = download_risk_free(start, end, refresh=refresh)
+        return rf.reindex(index)
+    return float(spec)
