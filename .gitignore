@@ -12,3 +12,4 @@ results_synthetic/
 # Downloaded data is reproducible from the script; commit it if you want
 # the repo to run offline. Comment this line out to keep it.
 # data/
+.DS_Store
