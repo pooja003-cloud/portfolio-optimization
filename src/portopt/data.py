@@ -15,6 +15,12 @@ import pandas as pd
 FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}"
 
 
+def _covers(index: pd.Index, start: str, end: str) -> bool:
+    """Does a cached series have every month from start to end?"""
+    needed = pd.date_range(pd.Timestamp(start) + pd.offsets.MonthEnd(0), end, freq="ME")
+    return set(needed) <= set(pd.DatetimeIndex(index))
+
+
 def download_returns(
     tickers: list[str],
     start: str,
@@ -26,8 +32,8 @@ def download_returns(
     cache = Path(cache) if cache else None
     if cache and cache.exists() and not refresh:
         rets = pd.read_csv(cache, index_col=0, parse_dates=True)
-        if set(tickers) <= set(rets.columns):
-            return rets[tickers]
+        if set(tickers) <= set(rets.columns) and _covers(rets.index, start, end):
+            return rets.loc[start:end, tickers]
 
     import yfinance as yf
 
@@ -115,7 +121,9 @@ def download_risk_free(
     """Monthly risk-free rate as a decimal per month, indexed by month-end."""
     cache = Path(cache) if cache else None
     if cache and cache.exists() and not refresh:
-        return pd.read_csv(cache, index_col=0, parse_dates=True)["rf"]
+        rf = pd.read_csv(cache, index_col=0, parse_dates=True)["rf"]
+        if _covers(rf.index, start, end):
+            return rf.loc[start:end]
 
     try:
         yields = _fetch_fred(series)

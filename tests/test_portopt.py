@@ -226,9 +226,29 @@ def test_resolve_risk_free_options(rets):
 
 
 # imports
-@pytest.mark.parametrize("module", ["backtest", "commentary", "config", "data", "estimators",
+@pytest.mark.parametrize("module", ["backtest", "commentary", "config", "data", "estimators", "extension",
                                     "metrics", "optimizers", "plots", "robustness", "run", "stats"])
 def test_every_module_imports(module):
     # catches typos in modules the other tests never import
     import importlib
     importlib.import_module(f"portopt.{module}")
+
+
+# 2023-2025 extension and data caching
+def test_extension_tests_exactly_2023_to_2025(tmp_path):
+    from portopt import extension
+    summary, sig = extension.main(["--synthetic", "--n-boot", "200", "--out", str(tmp_path)])
+    rets = pd.read_csv(tmp_path / "oos_returns.csv", index_col=0, parse_dates=True)
+    assert rets.index[0] == pd.Timestamp("2023-01-31") and rets.index[-1] == pd.Timestamp("2025-12-31")
+    assert len(rets) == 36 and len(summary) == 8 and len(sig) == 7
+    assert (tmp_path / "figures" / "cumulative_wealth.png").exists()
+
+
+def test_cache_is_only_reused_when_it_covers_the_dates(tmp_path):
+    cache = tmp_path / "rf.csv"
+    rf = pd.Series(0.001, index=pd.date_range("2012-01-31", "2022-12-31", freq="ME"), name="rf")
+    rf.rename_axis("date").to_frame().to_csv(cache)
+    got = data.download_risk_free("2015-01-01", "2016-12-31", cache=cache)
+    assert len(got) == 24
+    assert data._covers(rf.index, "2012-01-01", "2022-12-31")
+    assert not data._covers(rf.index, "2020-01-01", "2025-12-31")

@@ -1,0 +1,9 @@
+,Annual return,Annual volatility,Sharpe ratio,Maximum drawdown,Annual turnover,Average largest weight
+Equal weight,0.127625,0.089478,0.864199,-0.080294,0.068706,0.076923
+Minimum variance (sample),0.064202,0.054074,0.306596,-0.037549,0.264109,0.300000
+Minimum variance (Ledoit-Wolf),0.066056,0.053737,0.340586,-0.037103,0.222365,0.300000
+Maximum Sharpe (sample),0.235810,0.084991,1.993600,-0.058888,0.594357,0.300000
+Maximum Sharpe (Ledoit-Wolf),0.238455,0.085932,1.997999,-0.061508,0.565428,0.300000
+"Maximum Sharpe (Ledoit-Wolf, shrunk means)",0.223109,0.087771,1.814768,-0.064586,0.635289,0.300000
+Risk parity (sample),0.110728,0.075564,0.806538,-0.064335,0.128458,0.152638
+Risk parity (Ledoit-Wolf),0.111580,0.076095,0.811586,-0.064938,0.121210,0.147821

@@ -1,0 +1,8 @@
+,Sharpe ratio,Difference from equal weight,95% interval low,95% interval high,p-value
+Minimum variance (sample),0.3066,-0.5576,-1.0181,-0.1648,0.0152
+Minimum variance (Ledoit-Wolf),0.3406,-0.5236,-0.9638,-0.1242,0.0187
+Maximum Sharpe (sample),1.9936,1.1294,0.7132,1.9903,0.0070
+Maximum Sharpe (Ledoit-Wolf),1.9980,1.1338,0.7210,1.9785,0.0061
+"Maximum Sharpe (Ledoit-Wolf, shrunk means)",1.8148,0.9506,0.6004,1.6976,0.0101
+Risk parity (sample),0.8065,-0.0577,-0.2217,0.1442,0.5174
+Risk parity (Ledoit-Wolf),0.8116,-0.0526,-0.2120,0.1460,0.5426

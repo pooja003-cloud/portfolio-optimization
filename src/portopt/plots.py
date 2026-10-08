@@ -91,7 +91,9 @@ def plot_wealth(results: dict, path: Path):
     for name, res in results.items():
         wealth = (1 + res.returns).cumprod()
         ax.plot(wealth.index, wealth.values, label=name, **_style_for(name))
-    _base(ax, "Growth of $1 over the test period, 2015-2022 (out of sample)", "Value of $1 invested")
+    idx = next(iter(results.values())).returns.index
+    _base(ax, f"Growth of $1 over the test period, {idx[0]:%Y}-{idx[-1]:%Y} (out of sample)",
+          "Value of $1 invested")
     _legend_below(ax)
     _save(fig, path)
 
